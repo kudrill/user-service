@@ -2,6 +2,7 @@ package com.example.userservice.dao;
 
 import com.example.userservice.model.User;
 import com.example.userservice.util.HibernateUtil;
+import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -31,13 +32,23 @@ public class UserDaoIntegrationTest {
     static void setup() {
         postgres.start();
 
-        // Подменяем параметры подключения Hibernate для Testcontainers
+
         System.setProperty("hibernate.connection.url", postgres.getJdbcUrl());
         System.setProperty("hibernate.connection.username", postgres.getUsername());
         System.setProperty("hibernate.connection.password", postgres.getPassword());
 
         sessionFactory = HibernateUtil.getSessionFactory();
         userDao = new UserDaoImpl();
+    }
+
+    @BeforeEach
+    void cleanDatabase() {
+        // Очищаем таблицу users перед каждым тестом
+        try (Session session = sessionFactory.openSession()) {
+            session.beginTransaction();
+            session.createQuery("delete from User").executeUpdate();
+            session.getTransaction().commit();
+        }
     }
 
     @AfterAll
@@ -69,8 +80,11 @@ public class UserDaoIntegrationTest {
     @Test
     @Order(3)
     void testFindAll() throws Exception {
+        userDao.create(new User("Eve", "eve@test.com", 22));
+        userDao.create(new User("Frank", "frank@test.com", 29));
+
         List<User> users = userDao.findAll();
-        assertFalse(users.isEmpty());
+        assertEquals(2, users.size());
     }
 
     @Test
